@@ -46,6 +46,8 @@
   #include "detect_rev1.h"
 #elif defined(BOARD_BLUEY_1V1)
   #include "bluey_1v1.h"
+#elif defined(BOARD_SNAP_REV1)
+  #include "snap_rev1.h"
 #elif defined(BOARD_CUSTOM)
   #include "custom_board.h"
 #else

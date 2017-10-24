@@ -46,6 +46,7 @@
 #include "hal_nop_delay.h"
 #include "hal_gpio.h"
 #include "common_util.h"
+#include "log.h"
 #include "tinyprintf.h"
 #include "uart_printf.h"
 #include "us_timer.h"
@@ -61,6 +62,7 @@ int16_t pos=0;
 static void stop_ir_signal(void);
 static void run_ir_signal(void);
 
+#if 0
 /** @brief Configure the RGB LED pins as output and turn off LED */
 static void rgb_led_init(void)
 {
@@ -88,15 +90,23 @@ static void rgb_led_cycle(void)
     hal_gpio_pin_write(LED_GREEN, !(LEDS_ACTIVE_STATE));
     hal_gpio_pin_write(LED_BLUE, !(LEDS_ACTIVE_STATE));
 }
+/** @brief Turn on Green LED : using here as indication IR signal is on */
+static void led_green_on(void)
+{
+	hal_gpio_pin_write(LED_GREEN, (LEDS_ACTIVE_STATE));
+}
+/** @brief Turn off Green LED : using here as indication IR signal is off */
+static void led_green_off(void)
+{
+	hal_gpio_pin_write(LED_GREEN, !(LEDS_ACTIVE_STATE));
+}
 
+#endif
 /*
  * Run a 38Khz IR signal
  */
 static void run_ir_signal(void){
-	//PRINT_TIME;
-	//tfp_printf(" -- Entering run_ir_signal\n");
 
-	//PROFILE_START;
 	/*
 	creating a 38khz signal
 	-use timer1 (timer0 is used by the profile timer, timer3 by the microsecond timer, and RTC by the millisecond timer
@@ -108,9 +118,9 @@ static void run_ir_signal(void){
 
     NRF_TIMER1->TASKS_STOP      = 1;
     NRF_TIMER1->MODE = TIMER_MODE_MODE_Timer;
-    NRF_TIMER1->PRESCALER = IR_TIMER_PRESCALER;
+    NRF_TIMER1->PRESCALER = APPIKO_SNAP_IR_TIMER_PRESCALER;
     NRF_TIMER1->BITMODE =  TIMER_BITMODE_BITMODE_08Bit;
-    NRF_TIMER1->CC[0] = IR_SIGNAL_FREQUENCY_FACTOR ;
+    NRF_TIMER1->CC[0] = APPIKO_SNAP_IR_FREQUENCY_FACTOR ;
     NRF_TIMER1->SHORTS = (TIMER_SHORTS_COMPARE0_CLEAR_Enabled << TIMER_SHORTS_COMPARE0_CLEAR_Pos);
     NRF_TIMER1->TASKS_CLEAR = 1;
     NRF_TIMER1->TASKS_START = 1;
@@ -139,18 +149,16 @@ static void run_ir_signal(void){
     NRF_PPI->CHENSET = (PPI_CHENSET_CH0_Set << PPI_CHENSET_CH0_Pos);
 
     IR_SIGNAL_STATE = IR_ON;
-
-    //tfp_printf("%d : IR signal on\n", (int)read_time_us());
-    //PROFILE_START;
+    //PROFILE_STOP
+    PROFILE_START;
     //schedule the stop
     if (pos < ir_sequence_length) {
     	time_period = ir_nikon_sequence_toggle[pos];
-    	//tfp_printf("\nReading cfg %d, The signal is running, scheduled the stop %d micro seconds later\n", pos, time_period);
+    	//log_printf("\nReading cfg %d, The signal is running, scheduled the stop %d micro seconds later\n", pos, time_period);
     	pos++;
-    	///ms_timer_start(MS_TIMER2, MS_SINGLE_CALL, RTC_TICKS_MS(time_period/1000), stop_ir_signal);
     	us_timer_start(US_TIMER2, US_SINGLE_CALL, time_period, stop_ir_signal);
     } else {
-    	tfp_printf("\nReached end of sequence, leaving the signal on");
+    	log_printf("\nReached end of sequence, leaving the signal on");
     }
 
 }
@@ -160,25 +168,19 @@ static void run_ir_signal(void){
  * Stop IR signal timer
  */
 static void stop_ir_signal(void){
-	//PRINT_TIME;
-	//tfp_printf(" -- Entering stop_ir_signal\n");
-	//PROFILE_STOP;
-	//us_timer_stop(US_TIMER2);
 
 	NRF_TIMER1->TASKS_STOP      = 1;
 	IR_SIGNAL_STATE = IR_OFF;
-
-	//tfp_printf("%d : IR signal off\n", (int)read_time_us());
-	//PROFILE_STOP;
+	//PROFILE_START;
+	PROFILE_STOP;
 	//schedule the next start
 	if (pos < ir_sequence_length) {
 		time_period = ir_nikon_sequence_toggle[pos];
-		//tfp_printf("\nReading cfg %d, The signal is off, scheduled the start %d micro seconds later\n", pos, time_period);
+		//log_printf("\nReading cfg %d, The signal is off, scheduled the start %d micro seconds later\n", pos, time_period);
 		pos++;
-		//ms_timer_start(MS_TIMER2, MS_SINGLE_CALL, RTC_TICKS_MS(time_period/1000), run_ir_signal);
 		us_timer_start(US_TIMER2, US_SINGLE_CALL, time_period, run_ir_signal);
 	} else {
-    	tfp_printf("\nReached end of sequence, leaving the signal off");
+    	log_printf("\nReached end of sequence, leaving the signal off");
     }
 
 }
@@ -188,12 +190,12 @@ static void stop_ir_signal(void){
  */
 int main()
 {
-    rgb_led_init();
-    rgb_led_cycle();
+    //rgb_led_init();
+    //rgb_led_cycle();
     /* Initial printf */
     uart_printf_init(UART_PRINTF_BAUD_9600);
 
-    tfp_printf("\n************ Snap : Starting up **************\n");
+    log_printf("\n************ Snap : Starting up **************\n");
 
 
     ms_timer_init(APP_IRQ_PRIORITY_LOWEST);
@@ -203,10 +205,13 @@ int main()
     hfclk_xtal_init_blocking();
     lfclk_init(LFCLK_SRC_Xtal);
 
-    //
+    //PROFILE_START;
     run_ir_signal();
 
+    // check the IR LED
+    //hal_gpio_cfg_output(IR_PIN, IR_ACTIVE_STATE);
 
+    // Listen
     while (true)
     {
         __WFI();

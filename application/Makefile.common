@@ -252,7 +252,7 @@ $(OUTPUT_DIR)/$(OUTPUT_NAME).hex : $(OUTPUT_DIR)/$(OUTPUT_NAME).elf
 upload:
 	@if [ "$(DEBUGGER)" = "JLINK" ]; then\
 		$(RM) $(OUTPUT_DIR)/upload.jlink; \
-		echo "device $(JLINKDEVICE)\nw4 $(NVMC_CONFIG_ADRS) 1\nloadfile $(PWD)/$(OUTPUT_DIR)/$(OUTPUT_FLASHING).hex\nr\ng\nqc\n" > $(OUTPUT_DIR)/upload.jlink; \
+		echo "device $(JLINKDEVICE)\nw4 $(NVMC_CONFIG_ADRS) 1\nloadfile $(OUTPUT_DIR)/$(OUTPUT_FLASHING).hex\nr\ng\nqc\n" > $(OUTPUT_DIR)/upload.jlink; \
 		$(JLINK) $(OUTPUT_DIR)/upload.jlink; \
 	elif [ "$(DEBUGGER)" = "BMP" ]; then \
 		$(GDB) -q -ex 'target extended-remote /dev/ttyBmpGdb' -ex 'monitor swdp_scan' -ex 'attach 1' -ex 'load' -ex 'compare-sections' -ex 'detach' -ex 'quit' $(OUTPUT_DIR)/$(OUTPUT_FLASHING).hex; \
