@@ -59,7 +59,7 @@
 
 
 uint16_t sequence_pos=0;
-uint16_t total_members=0;
+uint16_t total_toggles=0;
 uint16_t time_period=0;
 
 static void toggle_on(void);
@@ -67,7 +67,7 @@ static void toggle_off(void);
 
 void toggle_on(void) {
 	run_ir_signal();
-	if (sequence_pos < total_members) {
+	if (sequence_pos <= total_toggles) {
 		time_period = nikon_trigger_sequence[sequence_pos];
 		log_printf("\nReading num %d, The signal is on, scheduled the stop %d micro seconds later\n", sequence_pos, time_period);
 		us_timer_start(US_TIMER2, US_SINGLE_CALL, time_period, toggle_off);
@@ -77,7 +77,7 @@ void toggle_on(void) {
 
 void toggle_off(void) {
 	stop_ir_signal();
-	if (sequence_pos < total_members) {
+	if (sequence_pos <= total_toggles) {
 		time_period = nikon_trigger_sequence[sequence_pos];
 		log_printf("\nReading num %d, The signal is off, scheduled the start %d micro seconds later\n", sequence_pos, time_period);
 		us_timer_start(US_TIMER2, US_SINGLE_CALL, time_period, toggle_on);
@@ -86,10 +86,10 @@ void toggle_off(void) {
 }
 
 void send_trigger(void) {
-	// first member of camera_trigger sequence is number of toggles, and 2nd member is length of the first on and the 3rd is the length of the off, etc
+    // first member of camera_trigger sequence is number of toggles, and 2nd member is length of the first on and the 3rd is the length of the off, etc
     sequence_pos = 0;
-    total_members = nikon_trigger_sequence[sequence_pos++];
-	toggle_on();
+    total_toggles = nikon_trigger_sequence[sequence_pos++];
+    toggle_on();
 }
 
 /**
@@ -97,8 +97,6 @@ void send_trigger(void) {
  */
 int main()
 {
-    //rgb_led_init();
-    //rgb_led_cycle();
     /* Initial printf */
     uart_printf_init(UART_PRINTF_BAUD_9600);
 
