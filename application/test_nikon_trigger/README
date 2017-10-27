@@ -1,0 +1,4 @@
+check this in as an example of the ir_sequence.
+the IR toggle sequence is in nikon_test.h
+the start and stop of the IR signals are separated in ir_signal.o
+
