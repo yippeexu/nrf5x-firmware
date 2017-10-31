@@ -1,0 +1,5 @@
+the IR toggle sequence for each camera is specified in camera.c
+add to the enum def and the sequence for ur camera in camera.h
+init ur camera with the correct CameraModel
+test by sending trigger in main.c
+
