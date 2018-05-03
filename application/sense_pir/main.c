@@ -62,6 +62,7 @@
 #include "pir_sense.h"
 #include "hal_pin_analog_input.h"
 #include "button_ui.h"
+#include "mcp4012_x.h"
 
 #include "nrf_nvic.h"
 #include "ble.h"
@@ -77,7 +78,7 @@
 #define ENABLE_WDT                 1
 
 #define PIR_SENSE_INTERVAL_MS      50
-#define PIR_SENSE_THRESHOLD        600
+#define PIR_SENSE_THRESHOLD        800
 
 #define SENSE_FAST_TICK_INTERVAL_MS      50
 #define SENSE_SLOW_TICK_INTERVAL_MS      300000
@@ -152,6 +153,7 @@ typedef struct
 /*      Global constants in flash         */
 /** Stores the current state of the device */
 sense_states current_state;
+bool triggered = false;
 
 /** Handle to specify the advertising state to the soft device */
 uint8_t adv_handle = BLE_GAP_ADV_SET_HANDLE_NOT_SET;
@@ -170,10 +172,30 @@ void SWI1_IRQHandler(void)
 //    log_printf("rdo\n");
 }
 
+void trig_handler(void)
+{
+    hal_gpio_pin_clear(JACK_TRIGGER_PIN);
+    hal_gpio_pin_write(LED_RED, !LEDS_ACTIVE_STATE);
+    log_printf("Trig\n");
+}
+
+void end_handler(void)
+{
+    triggered = false;
+    log_printf("End\n");
+}
+
 void pir_handler(int32_t adc_val)
 {
     log_printf("Sensed %d\n", adc_val);
-
+    if(triggered == false)
+    {
+        triggered = true;
+        ms_timer_start(MS_TIMER2, MS_SINGLE_CALL, LFCLK_TICKS_MS(1500), end_handler);
+        ms_timer_start(MS_TIMER3, MS_SINGLE_CALL, LFCLK_TICKS_MS(250), trig_handler);
+        hal_gpio_pin_write(LED_RED, LEDS_ACTIVE_STATE);
+        hal_gpio_pin_set(JACK_TRIGGER_PIN);
+    }
 }
 
 void sensepi_service_init()
@@ -465,7 +487,9 @@ static void advertising_start(void)
 void next_interval_handler(uint32_t interval)
 {
     log_printf("in %d\n", interval);
+#if 0
     button_ui_add_tick(interval);
+#endif
 }
 
 /**
@@ -498,13 +522,13 @@ void state_change_handler(uint32_t new_state)
             };
             device_tick_init(&tick_cfg);
 
-//            pir_sense_cfg pir_cfg =
-//            {
-//                PIR_SENSE_INTERVAL_MS, PIN_TO_ANALOG_INPUT(PIR_AMP_SIGNAL_PIN),
-//                PIN_TO_ANALOG_INPUT(PIR_AMP_OFFSET_PIN),
-//                PIR_SENSE_THRESHOLD, APP_IRQ_PRIORITY_HIGH, pir_handler
-//            };
-//            pir_sense_start(&pir_cfg);
+            pir_sense_cfg pir_cfg =
+            {
+                PIR_SENSE_INTERVAL_MS, PIN_TO_ANALOG_INPUT(PIR_AMP_SIGNAL_PIN),
+                PIN_TO_ANALOG_INPUT(PIR_AMP_OFFSET_PIN),
+                PIR_SENSE_THRESHOLD, APP_IRQ_PRIORITY_HIGH, pir_handler
+            };
+            pir_sense_start(&pir_cfg);
         }
         break;
     case ADVERTISING:
@@ -554,7 +578,6 @@ void state_change_handler(uint32_t new_state)
 void button_handler(button_ui_steps step, button_ui_action act)
 {
     log_printf("step %d, act %d\n", step, act);
-
 
     if(act == BUTTON_UI_ACT_CROSS)
     {
@@ -693,10 +716,14 @@ int main(void)
     hal_wdt_init(WDT_PERIOD_MS, wdt_prior_reset_callback);
     hal_wdt_start();
 #endif
-
+#if 0
     button_ui_init(BUTTON_PIN, APP_IRQ_PRIORITY_LOW,
             button_handler);
-
+#else
+    hal_gpio_cfg_output(JACK_TRIGGER_PIN, 0);
+    mcp4012_init(MCP4012T_CS_PIN, MCP4012T_UD_PIN, SPI_SCK_PIN);
+    mcp4012_set_value(54);
+#endif
     {
         irq_msg_callbacks cb =
             { next_interval_handler, state_change_handler };
