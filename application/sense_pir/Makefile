@@ -4,7 +4,7 @@ SLNO            := 682073614
 BLE_REQD        := BLE_STACK_SUPPORT_REQD
 PINRESET_REQD   := CONFIG_GPIO_AS_PINRESET
 DEBUGGER        := JLINK
-LOGGER			:= LOG_UART_PRINTF
+LOGGER			:= LOG_SEGGER_RTT
 
 SD_USED         := s112
 
@@ -47,6 +47,7 @@ C_SRC += nrf_util.c irq_msg_util.c
 C_SRC += pir_sense.c device_tick.c
 C_SRC += sd_evt_handler.c
 C_SRC += button_ui.c
+C_SRC += mcp4012_x.c
 
 #Gets the name of the application folder
 APPLN = $(shell basename $(PWD))
