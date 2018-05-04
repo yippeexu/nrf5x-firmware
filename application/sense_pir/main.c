@@ -78,7 +78,7 @@
 #define ENABLE_WDT                 1
 
 #define PIR_SENSE_INTERVAL_MS      50
-#define PIR_SENSE_THRESHOLD        800
+#define PIR_SENSE_THRESHOLD        2000
 
 #define SENSE_FAST_TICK_INTERVAL_MS      50
 #define SENSE_SLOW_TICK_INTERVAL_MS      300000
@@ -154,6 +154,7 @@ typedef struct
 /** Stores the current state of the device */
 sense_states current_state;
 bool triggered = false;
+uint32_t sens_sub = 0;
 
 /** Handle to specify the advertising state to the soft device */
 uint8_t adv_handle = BLE_GAP_ADV_SET_HANDLE_NOT_SET;
@@ -310,7 +311,7 @@ static void ble_evt_handler(ble_evt_t * evt)
         irq_msg_push(MSG_STATE_CHANGE, (void *)CONNECTED);
         break;
     case BLE_GAP_EVT_DISCONNECTED:
-        irq_msg_push(MSG_STATE_CHANGE, (void *)ADVERTISING);
+        irq_msg_push(MSG_STATE_CHANGE, (void *)SENSING);
         break;
     case BLE_GAP_EVT_CONN_PARAM_UPDATE:
         log_printf("sup time %d ms, max intvl %d ms, min intvl %d ms, slave lat %d\n",
@@ -328,6 +329,8 @@ static void ble_evt_handler(ble_evt_t * evt)
         log_printf("dn %x, mode %x, sens %x, tt %x, focus %x, cam %x %x\n",
                 config->oper_time, config->mode, config->sensitivity,
                 config->inter_trig_time, config->pre_focus, config->cam_comp, config->cam_model);
+
+        sens_sub = config->sensitivity*16;
 
         for(uint32_t i = 0; i < evt->evt.gatts_evt.params.write.len; i++)
         {
@@ -440,7 +443,7 @@ static void advertising_init(void)
 
     //TODO change to timeout and also in the advertising
     //Set the advertising to timeout in 180s
-    adv_params.duration = 1000; //BLE_GAP_ADV_TIMEOUT_LIMITED_MAX;
+    adv_params.duration = 5000; //BLE_GAP_ADV_TIMEOUT_LIMITED_MAX;
 
     //Any device can scan request and connect
     adv_params.filter_policy = BLE_GAP_ADV_FP_ANY;
@@ -487,7 +490,7 @@ static void advertising_start(void)
 void next_interval_handler(uint32_t interval)
 {
     log_printf("in %d\n", interval);
-#if 0
+#if 1
     button_ui_add_tick(interval);
 #endif
 }
@@ -522,11 +525,13 @@ void state_change_handler(uint32_t new_state)
             };
             device_tick_init(&tick_cfg);
 
+            log_printf("Thres %d\n", PIR_SENSE_THRESHOLD - sens_sub);
+
             pir_sense_cfg pir_cfg =
             {
                 PIR_SENSE_INTERVAL_MS, PIN_TO_ANALOG_INPUT(PIR_AMP_SIGNAL_PIN),
                 PIN_TO_ANALOG_INPUT(PIR_AMP_OFFSET_PIN),
-                PIR_SENSE_THRESHOLD, APP_IRQ_PRIORITY_HIGH, pir_handler
+                PIR_SENSE_THRESHOLD - sens_sub, APP_IRQ_PRIORITY_HIGH, pir_handler
             };
             pir_sense_start(&pir_cfg);
         }
@@ -716,14 +721,13 @@ int main(void)
     hal_wdt_init(WDT_PERIOD_MS, wdt_prior_reset_callback);
     hal_wdt_start();
 #endif
-#if 0
     button_ui_init(BUTTON_PIN, APP_IRQ_PRIORITY_LOW,
             button_handler);
-#else
+
     hal_gpio_cfg_output(JACK_TRIGGER_PIN, 0);
     mcp4012_init(MCP4012T_CS_PIN, MCP4012T_UD_PIN, SPI_SCK_PIN);
-    mcp4012_set_value(54);
-#endif
+    mcp4012_set_value(50);
+
     {
         irq_msg_callbacks cb =
             { next_interval_handler, state_change_handler };
