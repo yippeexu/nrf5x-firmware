@@ -176,6 +176,7 @@ void SWI1_IRQHandler(void)
 void trig_handler(void)
 {
     hal_gpio_pin_clear(JACK_TRIGGER_PIN);
+    hal_gpio_pin_clear(JACK_FOCUS_PIN);
     hal_gpio_pin_write(LED_RED, !LEDS_ACTIVE_STATE);
     log_printf("Trig\n");
 }
@@ -196,6 +197,7 @@ void pir_handler(int32_t adc_val)
         ms_timer_start(MS_TIMER3, MS_SINGLE_CALL, LFCLK_TICKS_MS(250), trig_handler);
         hal_gpio_pin_write(LED_RED, LEDS_ACTIVE_STATE);
         hal_gpio_pin_set(JACK_TRIGGER_PIN);
+        hal_gpio_pin_set(JACK_FOCUS_PIN);
     }
 }
 
@@ -724,7 +726,19 @@ int main(void)
     button_ui_init(BUTTON_PIN, APP_IRQ_PRIORITY_LOW,
             button_handler);
 
-    hal_gpio_cfg_output(JACK_TRIGGER_PIN, 0);
+    hal_gpio_cfg(JACK_TRIGGER_PIN,
+        GPIO_PIN_CNF_DIR_Output,
+        GPIO_PIN_CNF_INPUT_Disconnect,
+        HAL_GPIO_PULL_UP,
+        GPIO_PIN_CNF_DRIVE_S0D1,
+        GPIO_PIN_CNF_SENSE_Disabled);
+    hal_gpio_cfg(JACK_FOCUS_PIN,
+        GPIO_PIN_CNF_DIR_Output,
+        GPIO_PIN_CNF_INPUT_Disconnect,
+        HAL_GPIO_PULL_UP,
+        GPIO_PIN_CNF_DRIVE_S0D1,
+        GPIO_PIN_CNF_SENSE_Disabled);
+
     mcp4012_init(MCP4012T_CS_PIN, MCP4012T_UD_PIN, SPI_SCK_PIN);
     mcp4012_set_value(50);
 
